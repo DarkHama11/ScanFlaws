@@ -70,21 +70,7 @@ Instalación y uso:
 [*] Ejecutando checks de IAM...
 [+] Escaneando IAM Access Analyzer en 17 regiones...
 
-🛡️  Hallazgos en IAM:
-+----------------------------------+------------------+------------------------------------------------------+
-| Check                            | Entidad          | Detalle                                              |
-+----------------------------------+------------------+------------------------------------------------------+
-| Usuarios sin MFA                 | haljr11          | MFA no habilitado                                    |
-| Access Key antigua               | dev-user         | Access Key con 120 días (>90)                        |
-| Política insegura                | FullS3Access     | Política con Resource: '*'                           |
-| Asignación admin directa         | admin-user       | Política administrativa asignada directamente        |
-| Trust policy peligrosa           | LambdaExecRole   | Trust policy permite asumir desde cuenta externa     |
-| Usuario inactivo                 | old-intern       | Usuario inactivo por más de 90 días                  |
-| PassRole sin restricciones       | DeployPolicy     | Permite iam:PassRole sobre todos los roles            |
-| AssumeRole sin restricciones     | CrossAccountRole | Permite sts:AssumeRole sobre cualquier rol           |
-| Rol con política en línea        | LegacyAppRole    | Usa política en línea                                |
-| Peligro en CloudTrail            | AuditBypass      | Permite deshabilitar o modificar CloudTrail          |
-+----------------------------------+------------------+------------------------------------------------------+
+
 
 🔍 Hallazgos de Access Analyzer (acceso externo):
 +-----------+------------------------------------------+-----------------------------+

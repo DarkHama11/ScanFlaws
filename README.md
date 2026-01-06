@@ -77,6 +77,12 @@ Instalación y uso:
 | Access Key antigua | dev-user | Access Key con 120 días (>90) |
 || 
 
+🔍 Hallazgos de Access Analyzer (acceso externo):
+| Región    | Recurso                   | Principal |
+|-----------|---------------------------|-----------|
+| us-east-1 | arn:aws:s3:::my-bucket    | *         |
+
+
 ### ✅ Permisos recomendados (policy mínima)
 ```json
 {

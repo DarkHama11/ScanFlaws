@@ -75,7 +75,7 @@ Instalación y uso:
 |-------|---------|---------|
 | Usuarios sin MFA | master | MFA no habilitado |
 | Access Key antigua | dev-user | Access Key con 120 días (>90) |
-|---| 
+|| 
 
 ### ✅ Permisos recomendados (policy mínima)
 ```json

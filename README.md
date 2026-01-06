@@ -56,15 +56,15 @@ Antes de usar ScanFlaws, asegúrate de tener:
 
 Instalación y uso:
 
-1) Clonar el repositorio
+1) Clonar el repositorio R/:
    git clone https://github.com/DarkHama11/ScanFlaws.git
-2) Entrar a la carpeta correcta
+2) Entrar a la carpeta correcta R/:
    cd ScanFlaws\ScanFlaws
-3) Instalar dependencias
+3) Instalar dependencias R/:
    pip install boto3 tabulate
-4) Configurar credenciales AWS (solo la primera vez)
+4) Configurar credenciales AWS (solo la primera vez) R/:
    aws configure
-5) Ejecutar el escáner
+5) Ejecutar el escáner R/:
    python main.py 
 
 ### ✅ Permisos recomendados (policy mínima)

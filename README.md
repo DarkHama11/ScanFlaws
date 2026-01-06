@@ -73,7 +73,8 @@ Instalación y uso:
 🛡️  Hallazgos en IAM:
 | Check | Entidad | Detalle |
 |-------|---------|---------|
-| Usuarios sin MFA | haljr11 | MFA no habilitado |
+| Usuarios sin MFA | master | MFA no habilitado |
+| Access Key antigua | dev-user | Access Key con 120 días (>90) |
 |---------------------------------------------------------------------------------------------| 
 
 ### ✅ Permisos recomendados (policy mínima)

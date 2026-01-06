@@ -1,105 +1,86 @@
-import boto3
-from checksiam_checks import check_iam_issues
+from checksiam_checks import (
+    check_users_without_mfa,
+    check_old_access_keys,
+    check_wildcard_policies,
+    check_users_with_direct_admin_policies,
+    check_root_without_mfa,
+    check_roles_with_dangerous_trust_policy,
+    check_inactive_users,
+    check_unrestricted_passrole,
+    check_unrestricted_assume_role,
+    check_inline_policies,
+    check_cloudtrail_disable_permissions
+)
+from access_analyzer import check_access_analyzer_findings_multi_region
+from tabulate import tabulate
 
+def run_iam_checks():
+    all_findings = []
+
+    print("[*] Ejecutando checks de IAM...")
+
+    findings = check_users_without_mfa()
+    for f in findings:
+        all_findings.append(["Usuarios sin MFA", f["user"], f["issue"]])
+
+    findings = check_old_access_keys()
+    for f in findings:
+        all_findings.append(["Access Key antigua", f["user"], f["issue"]])
+
+    findings = check_wildcard_policies()
+    for f in findings:
+        all_findings.append(["Política insegura", f["resource"], f["issue"]])
+
+    findings = check_users_with_direct_admin_policies()
+    for f in findings:
+        all_findings.append(["Asignación admin directa", f["user"], f["issue"]])
+
+    findings = check_root_without_mfa()
+    for f in findings:
+        all_findings.append(["Root sin MFA", "root", f["issue"]])
+
+    findings = check_roles_with_dangerous_trust_policy()
+    for f in findings:
+        all_findings.append(["Trust policy peligrosa", f["role"], f["issue"]])
+
+    findings = check_inactive_users()
+    for f in findings:
+        all_findings.append(["Usuario inactivo", f["user"], f["issue"]])
+
+    findings = check_unrestricted_passrole()
+    for f in findings:
+        all_findings.append(["PassRole sin restricciones", f["resource"], f["issue"]])
+
+    findings = check_unrestricted_assume_role()
+    for f in findings:
+        all_findings.append(["AssumeRole sin restricciones", f["resource"], f["issue"]])
+
+    findings = check_inline_policies()
+    for f in findings:
+        all_findings.append([f["type"] + " con política en línea", f["entity"], f["issue"]])
+
+    findings = check_cloudtrail_disable_permissions()
+    for f in findings:
+        all_findings.append(["Peligro en CloudTrail", f["resource"], f["issue"]])
+
+    return all_findings
 
 def main():
-    print("[🛡️] AWS Security Scanner - Auditoría IAM Avanzada")
-    print("=" * 55)
+    iam_findings = run_iam_checks()
+    analyzer_findings = check_access_analyzer_findings_multi_region()
 
-    try:
-        sts = boto3.client('sts')
-        identity = sts.get_caller_identity()
-        print(f"[✅] Autenticado como: {identity['Arn']}\n")
-    except Exception as e:
-        print(f"[❌] Error de autenticación: {e}")
-        return
+    if iam_findings:
+        print("\n🛡️  Hallazgos en IAM:")
+        print(tabulate(iam_findings, headers=["Check", "Entidad", "Detalle"], tablefmt="grid"))
+    else:
+        print("[+] No se encontraron hallazgos en IAM.")
 
-    issues = check_iam_issues()
-    has_issues = False
-
-    # --- Root ---
-    if issues["root_without_mfa"]:
-        has_issues = True
-        print("🔴 [CRÍTICO] Cuenta root SIN MFA")
-    if issues["root_has_access_keys"]:
-        has_issues = True
-        print("🔴 [CRÍTICO] Cuenta root TIENE ACCESS KEYS")
-
-    # --- Password policy ---
-    if isinstance(issues["password_policy_weak"], str):
-        has_issues = True
-        print(f"⚠️  Política de contraseña: {issues['password_policy_weak']}")
-    elif issues["password_policy_weak"]:
-        weak = issues["password_policy_weak"]
-        if not all(weak.values()):
-            has_issues = True
-            print("⚠️  Política de contraseña débil (CIS):")
-            if not weak["min_length_ok"]: print("   - Longitud mínima < 14")
-            if not weak["max_age_ok"]: print("   - Vigencia > 90 días")
-
-    # --- Usuarios sin MFA ---
-    if issues["users_without_mfa"]:
-        has_issues = True
-        print(f"\n👤 Usuarios sin MFA ({len(issues['users_without_mfa'])}):")
-        for u in issues["users_without_mfa"]:
-            print(f"   - {u}")
-
-    # --- ESCALADA DE PRIVILEGIOS (¡NUEVO!) ---
-    if issues["users_with_privilege_escalation"]:
-        has_issues = True
-        print(f"\n🧨 USUARIOS CON ESCALADA DE PRIVILEGIOS ({len(issues['users_with_privilege_escalation'])}):")
-        for u in issues["users_with_privilege_escalation"]:
-            print(f"   - {u} → puede volverse administrador")
-
-    # --- Access Keys ---
-    if issues["old_access_keys"]:
-        has_issues = True
-        print(f"\n⏳ Access keys activas >90 días ({len(issues['old_access_keys'])}):")
-        for k in issues["old_access_keys"]:
-            print(f"   - {k['user']} | {k['key_id']} | {k['age_days']} días")
-
-    # --- Políticas peligrosas ---
-    if issues["wildcard_resource_policies"]:
-        has_issues = True
-        print(f"\n💣 Resource:* + acciones sensibles ({len(issues['wildcard_resource_policies'])}):")
-        for p in issues["wildcard_resource_policies"]:
-            print(f"   - {p['user']} | {p['action']} | {p['source']}")
-
-    # --- CloudTrail ---
-    if issues["users_can_disable_cloudtrail"]:
-        has_issues = True
-        print(f"\n🔥 Puede deshabilitar CloudTrail:")
-        for u in issues["users_can_disable_cloudtrail"]:
-            print(f"   - {u}")
-
-    # --- Roles ---
-    if issues["publicly_assumable_roles"]:
-        has_issues = True
-        print(f"\n🌍 Roles asumibles desde Internet:")
-        for r in issues["publicly_assumable_roles"]:
-            print(f"   - {r}")
-
-    # --- IAM ACCESS ANALYZER (¡NUEVO!) ---
-    if issues["access_analyzer_findings"]:
-        has_issues = True
-        print(f"\n🔍 IAM ACCESS ANALYZER - Hallazgos externos ({len(issues['access_analyzer_findings'])}):")
-        for f in issues["access_analyzer_findings"]:
-            print(f"   - {f['resource']}")
-            print(f"     Acción: {f['action']} | Principal: {f['principal']}")
-
-    # --- Limpieza ---
-    if issues["empty_groups"] or issues["unused_customer_managed_policies"]:
-        has_issues = True
-        if issues["empty_groups"]:
-            print(f"\n🧹 Grupos vacíos: {len(issues['empty_groups'])}")
-        if issues["unused_customer_managed_policies"]:
-            print(f"🗑️  Políticas no usadas: {len(issues['unused_customer_managed_policies'])}")
-
-    if not has_issues:
-        print("\n[✅] ✨ ¡Excelente! Tu configuración IAM es segura.")
-
-    print("\n[🔷] Auditoría IAM avanzada finalizada.")
-
+    if analyzer_findings:
+        aa_table = [[f["region"], f["resource"], f["principal"]] for f in analyzer_findings]
+        print("\n🔍 Hallazgos de Access Analyzer (acceso externo):")
+        print(tabulate(aa_table, headers=["Región", "Recurso", "Principal"], tablefmt="grid"))
+    else:
+        print("[+] No se encontraron hallazgos de acceso externo.")
 
 if __name__ == "__main__":
     main()

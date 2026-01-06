@@ -1,333 +1,473 @@
 import boto3
 from datetime import datetime, timezone
+from botocore.exceptions import ClientError
 import json
+import csv
+from io import StringIO
+import time
 
-SENSITIVE_ACTIONS = [
-    "iam:*", "s3:*", "kms:*", "secretsmanager:*", "rds:*", "ec2:*", "lambda:*",
-    "cloudtrail:*", "organizations:*", "sts:AssumeRole", "iam:PassRole",
-    "iam:CreateAccessKey", "iam:DeleteUser", "iam:AttachUserPolicy",
-    "iam:PutUserPolicy", "iam:UpdateAssumeRolePolicy", "cloudtrail:StopLogging",
-    "cloudtrail:DeleteTrail", "iam:AddUserToGroup", "iam:CreatePolicy",
-    "iam:CreateRole", "iam:AttachRolePolicy"
-]
 
-def check_iam_issues():
-    iam = boto3.client('iam')
-    sts = boto3.client('sts')
-    report = {
-        "root_without_mfa": False,
-        "root_has_access_keys": False,
-        "users_without_mfa": [],
-        "old_access_keys": [],
-        "unused_access_keys": [],
-        "unused_console_passwords": [],
-        "high_risk_policies": [],
-        "wildcard_resource_policies": [],
-        "empty_groups": [],
-        "unused_customer_managed_policies": [],
-        "users_with_admin_policies": [],
-        "publicly_assumable_roles": [],
-        "roles_with_excessive_trust": [],
-        "users_can_disable_cloudtrail": [],
-        "password_policy_weak": {},
-        "users_with_privilege_escalation": [],  # ← NUEVO
-        "access_analyzer_findings": []          # ← Para Access Analyzer
-    }
+def get_iam_client():
+    return boto3.client('iam')
 
-    account_id = sts.get_caller_identity()['Account']
 
-    # --- Root checks ---
+# --------------------------------------------------------------
+# 1. Usuarios sin MFA
+# --------------------------------------------------------------
+def check_users_without_mfa():
+    client = get_iam_client()
+    findings = []
     try:
-        summary = iam.get_account_summary()
-        report["root_without_mfa"] = (summary['SummaryMap'].get('AccountMFAEnabled', 0) == 0)
+        paginator = client.get_paginator('list_users')
+        for page in paginator.paginate():
+            for user in page['Users']:
+                username = user['UserName']
+                try:
+                    mfa_devices = client.list_mfa_devices(UserName=username)['MFADevices']
+                    if not mfa_devices:
+                        findings.append({
+                            "user": username,
+                            "issue": "MFA no habilitado"
+                        })
+                except ClientError:
+                    continue
     except Exception as e:
-        print(f"[!] Error al verificar root MFA: {e}")
+        print(f"[!] Error escaneando usuarios sin MFA: {e}")
+    return findings
 
-    # --- Password policy ---
+
+# --------------------------------------------------------------
+# 2. Access Keys antiguas (>90 días)
+# --------------------------------------------------------------
+def check_old_access_keys(max_age_days=90):
+    client = get_iam_client()
+    findings = []
     try:
-        policy = iam.get_account_password_policy()['PasswordPolicy']
-        report["password_policy_weak"] = {
-            "min_length_ok": policy.get('MinimumPasswordLength', 0) >= 14,
-            "require_symbols": policy.get('RequireSymbols', False),
-            "require_numbers": policy.get('RequireNumbers', False),
-            "require_uppercase": policy.get('RequireUppercaseCharacters', False),
-            "require_lowercase": policy.get('RequireLowercaseCharacters', False),
-            "max_age_ok": policy.get('MaxPasswordAge', 0) <= 90,
-            "reuse_prevention_ok": policy.get('PasswordReusePrevention', 0) >= 24
-        }
-    except iam.exceptions.NoSuchEntityException:
-        report["password_policy_weak"] = "❌ No existe política de contraseña"
-    except Exception as e:
-        print(f"[!] Error política de contraseña: {e}")
-
-    # --- Usuarios ---
-    try:
-        users = iam.list_users()['Users']
-    except Exception as e:
-        print(f"[!] Error al listar usuarios: {e}")
-        return report
-
-    for user in users:
-        username = user['UserName']
-        # MFA
-        mfa_devices = iam.list_mfa_devices(UserName=username).get('MFADevices', [])
-        if not mfa_devices:
-            report["users_without_mfa"].append(username)
-
-        # Access keys
-        try:
-            access_keys = iam.list_access_keys(UserName=username)['AccessKeyMetadata']
-            for key in access_keys:
-                if key['Status'] == 'Active':
-                    created = normalize_date(key['CreateDate'])
-                    age = (datetime.now(timezone.utc) - created).days
-                    if age > 90:
-                        report["old_access_keys"].append({"user": username, "key_id": key['AccessKeyId'], "age_days": age})
-                else:
-                    report["unused_access_keys"].append({"user": username, "key_id": key['AccessKeyId']})
-        except Exception as e:
-            print(f"[!] Error keys de {username}: {e}")
-
-        # Contraseña sin usar
-        if 'PasswordLastUsed' not in user:
-            create_date = normalize_date(user['CreateDate'])
-            age = (datetime.now(timezone.utc) - create_date).days
-            if age > 90:
-                report["unused_console_passwords"].append({"user": username, "reason": "Nunca usó contraseña"})
-        else:
-            last_used = normalize_date(user['PasswordLastUsed'])
-            age = (datetime.now(timezone.utc) - last_used).days
-            if age > 90:
-                report["unused_console_passwords"].append({"user": username, "last_used_days_ago": age})
-
-        # Analizar políticas
-        risky_inline, wildcard_inline = analyze_user_policies(iam, username, is_inline=True)
-        risky_attached, wildcard_attached = analyze_user_policies(iam, username, is_inline=False)
-        all_risky = risky_inline + risky_attached
-        all_wildcard = wildcard_inline + wildcard_attached
-
-        report["high_risk_policies"].extend(all_risky)
-        report["wildcard_resource_policies"].extend(all_wildcard)
-
-        # Verificar escalada
-        if can_escalate_privileges(all_risky):
-            report["users_with_privilege_escalation"].append(username)
-
-        # CloudTrail
-        if can_disable_cloudtrail(all_risky):
-            report["users_can_disable_cloudtrail"].append(username)
-
-    # --- Roles ---
-    try:
-        roles = iam.list_roles()['Roles']
-        for role in roles:
-            policy = role['AssumeRolePolicyDocument']
-            if is_publicly_assumable(policy):
-                report["publicly_assumable_roles"].append(role['RoleName'])
-            if has_excessive_trust(policy):
-                report["roles_with_excessive_trust"].append(role['RoleName'])
-    except Exception as e:
-        print(f"[!] Error roles: {e}")
-
-    # --- Grupos y políticas no usadas ---
-    try:
-        groups = iam.list_groups()['Groups']
-        for group in groups:
-            if not iam.get_group(GroupName=group['GroupName'])['Users']:
-                report["empty_groups"].append(group['GroupName'])
-        policies = iam.list_policies(Scope='Local')['Policies']
-        for p in policies:
-            if p['AttachmentCount'] == 0:
-                report["unused_customer_managed_policies"].append(p['PolicyName'])
-    except Exception as e:
-        print(f"[!] Error grupos/políticas: {e}")
-
-    # --- Usuarios con AdministratorAccess ---
-    for user in users:
-        try:
-            attached = iam.list_attached_user_policies(UserName=user['UserName'])['AttachedPolicies']
-            if any("AdministratorAccess" in p['PolicyName'] for p in attached):
-                report["users_with_admin_policies"].append(user['UserName'])
-        except:
-            pass
-
-    # --- IAM Access Analyzer (se ejecuta al final) ---
-    report["access_analyzer_findings"] = check_access_analyzer_findings()
-
-    return report
-
-# === FUNCIONES AUXILIARES ===
-
-def normalize_date(date_val):
-    if isinstance(date_val, str):
-        date_val = date_val.replace('Z', '+00:00')
-        if '.' in date_val:
-            date_val = date_val.split('.')[0] + '+00:00'
-        return datetime.fromisoformat(date_val)
-    return date_val
-
-def analyze_user_policies(iam, username, is_inline=True):
-    risky = []
-    wildcard = []
-    try:
-        if is_inline:
-            policies = iam.list_user_policies(UserName=username)['PolicyNames']
-            for name in policies:
-                doc = iam.get_user_policy(UserName=username, PolicyName=name)['PolicyDocument']
-                r, w = analyze_policy_document(doc, username, f"inline:{name}")
-                risky.extend(r)
-                wildcard.extend(w)
-        else:
-            attached = iam.list_attached_user_policies(UserName=username)['AttachedPolicies']
-            for ap in attached:
-                policy_arn = ap['PolicyArn']
-                version = iam.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
-                doc = iam.get_policy_version(PolicyArn=policy_arn, VersionId=version)['PolicyVersion']['Document']
-                r, w = analyze_policy_document(doc, username, f"attached:{ap['PolicyName']}")
-                risky.extend(r)
-                wildcard.extend(w)
-    except Exception as e:
-        print(f"[!] Error analizando políticas de {username}: {e}")
-    return risky, wildcard
-
-def analyze_policy_document(doc, user, source):
-    risky = []
-    wildcard = []
-    if isinstance(doc, str):
-        doc = json.loads(doc)
-    statements = doc.get('Statement', [])
-    if isinstance(statements, dict):
-        statements = [statements]
-    for stmt in statements:
-        if stmt.get('Effect') != 'Allow':
-            continue
-        actions = stmt.get('Action', [])
-        resources = stmt.get('Resource', '*')
-        if isinstance(actions, str):
-            actions = [actions]
-        if isinstance(resources, str):
-            resources = [resources]
-        for action in actions:
-            if any(sens in action for sens in SENSITIVE_ACTIONS):
-                risky.append({"user": user, "action": action, "source": source})
-        if "*" in resources:
-            for action in actions:
-                if any(sens in action for sens in SENSITIVE_ACTIONS):
-                    wildcard.append({"user": user, "action": action, "source": source})
-    return risky, wildcard
-
-def can_disable_cloudtrail(policies):
-    for p in policies:
-        if "cloudtrail:StopLogging" in p["action"] or "cloudtrail:DeleteTrail" in p["action"]:
-            return True
-    return False
-
-def is_publicly_assumable(policy_doc):
-    for stmt in policy_doc.get('Statement', []):
-        principal = stmt.get('Principal', {})
-        if principal == "*" or principal == {"AWS": "*"}:
-            return True
-        if isinstance(principal, dict) and "AWS" in principal:
-            aws_principals = principal["AWS"]
-            if isinstance(aws_principals, str):
-                aws_principals = [aws_principals]
-            current_account = boto3.client('sts').get_caller_identity()['Account']
-            for arn in aws_principals:
-                if arn == "*":
-                    return True
-                if not arn.startswith(f"arn:aws:iam::{current_account}:") and not arn.startswith("arn:aws:iam::aws:"):
-                    return True
-    return False
-
-def has_excessive_trust(policy_doc):
-    allowed_services = {
-        "lambda.amazonaws.com", "ec2.amazonaws.com", "s3.amazonaws.com",
-        "events.amazonaws.com", "sns.amazonaws.com", "sqs.amazonaws.com",
-        "apigateway.amazonaws.com", "ec2.application-autoscaling.amazonaws.com"
-    }
-    for stmt in policy_doc.get('Statement', []):
-        principal = stmt.get('Principal', {})
-        if isinstance(principal, dict) and "Service" in principal:
-            services = principal["Service"]
-            if isinstance(services, str):
-                services = [services]
-            for svc in services:
-                if svc not in allowed_services and not svc.endswith(".amazonaws.com"):
-                    return True
-        elif principal == "*":
-            return True
-    return False
-
-# === 🔥 NUEVO: Detección de escalada de privilegios ===
-def can_escalate_privileges(risky_policies):
-    actions = set()
-    for p in risky_policies:
-        action = p["action"]
-        if isinstance(action, list):
-            actions.update(a.lower() for a in action)
-        else:
-            actions.add(action.lower())
-
-    # Combinaciones peligrosas
-    if "iam:putuserpolicy" in actions:
-        return True
-    if "iam:attachuserpolicy" in actions:
-        return True
-    if "iam:createpolicy" in actions and "iam:attachuserpolicy" in actions:
-        return True
-    if "iam:addusertogroup" in actions:
-        # Podría agregarse a un grupo admin
-        return True
-    if "iam:createrole" in actions and "sts:assumerole" in actions:
-        return True
-    if "iam:attachrolepolicy" in actions:
-        return True
-    return False
-
-# === 🌐 NUEVO: IAM Access Analyzer ===
-def check_access_analyzer_findings():
-    try:
-        # ✅ Nombre CORRECTO del servicio: 'accessanalyzer' (sin guion)
-        client = boto3.client('accessanalyzer')
-        analyzers = client.list_analyzers().get('analyzers', [])
-        findings = []
-        for analyzer in analyzers:
-            paginator = client.get_paginator('list_findings')
-            for page in paginator.paginate(analyzerArn=analyzer['arn']):
-                for f in page.get('findings', []):
-                    if f.get('status') == 'ACTIVE':
-                        principal = f.get('principal', {})
-                        current_account = boto3.client('sts').get_caller_identity()['Account']
-                        # Verificar si es acceso externo
-                        is_external = False
-                        if principal == "*":
-                            is_external = True
-                        elif isinstance(principal, dict):
-                            aws_principal = principal.get("AWS")
-                            if aws_principal:
-                                if isinstance(aws_principal, str):
-                                    aws_principal = [aws_principal]
-                                for arn in aws_principal:
-                                    if not arn.startswith(f"arn:aws:iam::{current_account}:") and arn != "*":
-                                        is_external = True
-                                        break
-                        if is_external:
+        paginator = client.get_paginator('list_users')
+        for page in paginator.paginate():
+            for user in page['Users']:
+                username = user['UserName']
+                try:
+                    keys = client.list_access_keys(UserName=username)['AccessKeyMetadata']
+                    for key in keys:
+                        if key['Status'] != 'Active':
+                            continue
+                        create_date = key['CreateDate']
+                        if create_date.tzinfo is None:
+                            create_date = create_date.replace(tzinfo=timezone.utc)
+                        age = (datetime.now(timezone.utc) - create_date).days
+                        if age > max_age_days:
                             findings.append({
-                                "resource": f.get('resource', 'Unknown'),
-                                "action": ", ".join(f.get('action', []))[:50],
-                                "principal": str(principal)[:60]
+                                "user": username,
+                                "key_id": key['AccessKeyId'],
+                                "age_days": age,
+                                "issue": f"Access Key con {age} días (>{max_age_days})"
                             })
-        return findings
-    except boto3.exceptions.botocore.exceptions.ClientError as e:
-        error_code = e.response['Error']['Code']
-        if error_code == 'AccessDeniedException':
-            print("[!] Acceso denegado a IAM Access Analyzer (requiere permisos)")
+                except ClientError:
+                    continue
+    except Exception as e:
+        print(f"[!] Error escaneando access keys antiguas: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 3. Políticas con Resource: "*"
+# --------------------------------------------------------------
+def _has_wildcard_resource(policy_doc):
+    if isinstance(policy_doc, str):
+        policy_doc = json.loads(policy_doc)
+    for stmt in policy_doc.get('Statement', []):
+        if stmt.get('Effect') == 'Allow':
+            resource = stmt.get('Resource')
+            if resource == '*':
+                return True
+            if isinstance(resource, list) and '*' in resource:
+                return True
+    return False
+
+
+def check_wildcard_policies():
+    client = get_iam_client()
+    findings = []
+    try:
+        paginator = client.get_paginator('list_policies')
+        for page in paginator.paginate(Scope='Local'):
+            for policy in page['Policies']:
+                try:
+                    version = client.get_policy_version(
+                        PolicyArn=policy['Arn'],
+                        VersionId=policy['DefaultVersionId']
+                    )
+                    if _has_wildcard_resource(version['PolicyVersion']['Document']):
+                        findings.append({
+                            "resource": policy['PolicyName'],
+                            "arn": policy['Arn'],
+                            "issue": "Política con Resource: '*'"
+                        })
+                except ClientError:
+                    continue
+    except Exception as e:
+        print(f"[!] Error escaneando políticas wildcard: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 4. Usuarios con políticas administrativas directas
+# --------------------------------------------------------------
+def check_users_with_direct_admin_policies():
+    client = get_iam_client()
+    findings = []
+    try:
+        paginator = client.get_paginator('list_users')
+        for page in paginator.paginate():
+            for user in page['Users']:
+                username = user['UserName']
+                try:
+                    policies = client.list_attached_user_policies(UserName=username)['AttachedPolicies']
+                    for p in policies:
+                        if 'AdministratorAccess' in p['PolicyName']:
+                            findings.append({
+                                "user": username,
+                                "policy": p['PolicyName'],
+                                "issue": "Política administrativa asignada directamente"
+                            })
+                except ClientError:
+                    continue
+    except Exception as e:
+        print(f"[!] Error escaneando políticas admin en usuarios: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 5. Root sin MFA (usando credential report)
+# --------------------------------------------------------------
+def check_root_without_mfa():
+    client = get_iam_client()
+    try:
+        client.generate_credential_report()
+        for _ in range(10):
+            try:
+                report = client.get_credential_report()
+                break
+            except ClientError as e:
+                if 'ReportNotPresent' in str(e):
+                    time.sleep(1)
+                    continue
+                else:
+                    raise
         else:
-            print(f"[!] Error en Access Analyzer: {e}")
+            return []
+
+        rows = list(csv.DictReader(StringIO(report['Content'].decode())))
+        for row in rows:
+            if row['user'] == '<root_account>':
+                if row['mfa_active'] == 'false':
+                    return [{"issue": "Cuenta root sin MFA"}]
         return []
     except Exception as e:
-        # Si no hay analyzers o el servicio no está disponible
-        if "no analyzers" in str(e).lower() or "ResourceNotFoundException" in str(e):
-            return []
-        print(f"[!] Error inesperado en Access Analyzer: {e}")
+        print(f"[!] No se pudo verificar MFA en root: {e}")
         return []
+
+
+# --------------------------------------------------------------
+# 6. Roles con trust policy peligrosa (pública o externa)
+# --------------------------------------------------------------
+def check_roles_with_dangerous_trust_policy():
+    client = boto3.client('iam')
+    findings = []
+    try:
+        sts = boto3.client('sts')
+        current_account = sts.get_caller_identity()['Account']
+    except Exception as e:
+        print(f"[!] No se pudo obtener la cuenta actual: {e}")
+        current_account = None
+
+    try:
+        paginator = client.get_paginator('list_roles')
+        for page in paginator.paginate():
+            for role in page['Roles']:
+                role_name = role['RoleName']
+                policy_doc = role['AssumeRolePolicyDocument']
+
+                if isinstance(policy_doc, str):
+                    policy_doc = json.loads(policy_doc)
+
+                for stmt in policy_doc.get('Statement', []):
+                    if stmt.get('Effect') != 'Allow':
+                        continue
+
+                    principal = stmt.get('Principal', {})
+
+                    if principal == "*":
+                        findings.append({
+                            "role": role_name,
+                            "principal": "*",
+                            "issue": "Trust policy permite asumir desde cualquier cuenta (público)"
+                        })
+                        continue
+
+                    if isinstance(principal, dict):
+                        aws_principals = principal.get("AWS", [])
+                        if isinstance(aws_principals, str):
+                            aws_principals = [aws_principals]
+
+                        for arn in aws_principals:
+                            if arn == "*":
+                                findings.append({
+                                    "role": role_name,
+                                    "principal": "*",
+                                    "issue": "Trust policy permite asumir desde cualquier cuenta (ARN comodín)"
+                                })
+                            elif current_account and not arn.startswith(f"arn:aws:iam::{current_account}:"):
+                                findings.append({
+                                    "role": role_name,
+                                    "principal": arn,
+                                    "issue": "Trust policy permite asumir desde cuenta externa"
+                                })
+    except Exception as e:
+        print(f"[!] Error escaneando trust policies de roles: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 7. Usuarios inactivos (>90 días)
+# --------------------------------------------------------------
+def check_inactive_users(max_inactivity_days=90):
+    client = boto3.client('iam')
+    findings = []
+    try:
+        client.generate_credential_report()
+        for _ in range(10):
+            try:
+                report = client.get_credential_report()
+                break
+            except ClientError as e:
+                if 'ReportNotPresent' in str(e):
+                    time.sleep(1)
+                    continue
+                else:
+                    raise
+        else:
+            return []
+
+        rows = list(csv.DictReader(StringIO(report['Content'].decode())))
+        now = datetime.now(timezone.utc)
+
+        for row in rows:
+            if row['user'] == '<root_account>':
+                continue
+
+            username = row['user']
+            active = False
+
+            if row['password_enabled'] == 'true' and row['password_last_used'] != 'N/A':
+                pwd_last = datetime.fromisoformat(row['password_last_used'].replace('Z', '+00:00'))
+                if (now - pwd_last).days <= max_inactivity_days:
+                    active = True
+
+            if not active and row['access_key_1_active'] == 'true':
+                if row['access_key_1_last_used_date'] != 'N/A':
+                    ak1_last = datetime.fromisoformat(row['access_key_1_last_used_date'].replace('Z', '+00:00'))
+                    if (now - ak1_last).days <= max_inactivity_days:
+                        active = True
+                else:
+                    ak1_created = datetime.fromisoformat(row['access_key_1_last_rotated'].replace('Z', '+00:00'))
+                    if (now - ak1_created).days <= max_inactivity_days:
+                        active = True
+
+            if not active and row['access_key_2_active'] == 'true':
+                if row['access_key_2_last_used_date'] != 'N/A':
+                    ak2_last = datetime.fromisoformat(row['access_key_2_last_used_date'].replace('Z', '+00:00'))
+                    if (now - ak2_last).days <= max_inactivity_days:
+                        active = True
+                else:
+                    ak2_created = datetime.fromisoformat(row['access_key_2_last_rotated'].replace('Z', '+00:00'))
+                    if (now - ak2_created).days <= max_inactivity_days:
+                        active = True
+
+            if not active:
+                findings.append({
+                    "user": username,
+                    "issue": f"Usuario inactivo por más de {max_inactivity_days} días"
+                })
+
+    except Exception as e:
+        print(f"[!] Error escaneando usuarios inactivos: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 8. Políticas con iam:PassRole sin restricciones
+# --------------------------------------------------------------
+def check_unrestricted_passrole():
+    client = boto3.client('iam')
+    findings = []
+    try:
+        paginator = client.get_paginator('list_policies')
+        for page in paginator.paginate(Scope='Local'):
+            for policy in page['Policies']:
+                try:
+                    version = client.get_policy_version(
+                        PolicyArn=policy['Arn'],
+                        VersionId=policy['DefaultVersionId']
+                    )
+                    doc = version['PolicyVersion']['Document']
+                    if isinstance(doc, str):
+                        doc = json.loads(doc)
+
+                    for stmt in doc.get('Statement', []):
+                        if stmt.get('Effect') != 'Allow':
+                            continue
+                        actions = stmt.get('Action', [])
+                        if not isinstance(actions, list):
+                            actions = [actions]
+                        actions = [a.lower() for a in actions]
+                        if 'iam:passrole' in actions or 'passrole' in actions:
+                            resource = stmt.get('Resource', [])
+                            if not isinstance(resource, list):
+                                resource = [resource]
+                            if '*' in resource:
+                                findings.append({
+                                    "resource": policy['PolicyName'],
+                                    "arn": policy['Arn'],
+                                    "issue": "Permite iam:PassRole sobre todos los roles (Resource: '*')"
+                                })
+                except ClientError:
+                    continue
+    except Exception as e:
+        print(f"[!] Error escaneando iam:PassRole sin restricciones: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 9. Políticas con sts:AssumeRole sin restricciones
+# --------------------------------------------------------------
+def check_unrestricted_assume_role():
+    client = boto3.client('iam')
+    findings = []
+    try:
+        paginator = client.get_paginator('list_policies')
+        for page in paginator.paginate(Scope='Local'):
+            for policy in page['Policies']:
+                try:
+                    version = client.get_policy_version(
+                        PolicyArn=policy['Arn'],
+                        VersionId=policy['DefaultVersionId']
+                    )
+                    doc = version['PolicyVersion']['Document']
+                    if isinstance(doc, str):
+                        doc = json.loads(doc)
+
+                    for stmt in doc.get('Statement', []):
+                        if stmt.get('Effect') != 'Allow':
+                            continue
+                        actions = stmt.get('Action', [])
+                        if not isinstance(actions, list):
+                            actions = [actions]
+                        actions = [a.lower() for a in actions]
+                        if 'sts:assumerole' in actions or 'assumerole' in actions:
+                            resource = stmt.get('Resource', [])
+                            if not isinstance(resource, list):
+                                resource = [resource]
+                            if '*' in resource:
+                                findings.append({
+                                    "resource": policy['PolicyName'],
+                                    "arn": policy['Arn'],
+                                    "issue": "Permite sts:AssumeRole sobre cualquier rol (Resource: '*')"
+                                })
+                except ClientError:
+                    continue
+    except Exception as e:
+        print(f"[!] Error escaneando sts:AssumeRole sin restricciones: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 10. Usuarios o roles con políticas en línea
+# --------------------------------------------------------------
+def check_inline_policies():
+    client = boto3.client('iam')
+    findings = []
+    try:
+        # Usuarios
+        user_paginator = client.get_paginator('list_users')
+        for page in user_paginator.paginate():
+            for user in page['Users']:
+                try:
+                    policies = client.list_user_policies(UserName=user['UserName'])
+                    if policies['PolicyNames']:
+                        for name in policies['PolicyNames']:
+                            findings.append({
+                                "entity": user['UserName'],
+                                "type": "Usuario",
+                                "policy": name,
+                                "issue": "Usa política en línea"
+                            })
+                except ClientError:
+                    continue
+
+        # Roles
+        role_paginator = client.get_paginator('list_roles')
+        for page in role_paginator.paginate():
+            for role in page['Roles']:
+                try:
+                    policies = client.list_role_policies(RoleName=role['RoleName'])
+                    if policies['PolicyNames']:
+                        for name in policies['PolicyNames']:
+                            findings.append({
+                                "entity": role['RoleName'],
+                                "type": "Rol",
+                                "policy": name,
+                                "issue": "Usa política en línea"
+                            })
+                except ClientError:
+                    continue
+
+    except Exception as e:
+        print(f"[!] Error escaneando políticas en línea: {e}")
+    return findings
+
+
+# --------------------------------------------------------------
+# 11. Políticas que permiten deshabilitar CloudTrail
+# --------------------------------------------------------------
+def check_cloudtrail_disable_permissions():
+    client = boto3.client('iam')
+    findings = []
+    dangerous_actions = {
+        'cloudtrail:stoplogging',
+        'cloudtrail:deletetrail',
+        'cloudtrail:deleteeventselectors',
+        'cloudtrail:puteventselectors'
+    }
+    try:
+        paginator = client.get_paginator('list_policies')
+        for page in paginator.paginate(Scope='Local'):
+            for policy in page['Policies']:
+                try:
+                    version = client.get_policy_version(
+                        PolicyArn=policy['Arn'],
+                        VersionId=policy['DefaultVersionId']
+                    )
+                    doc = version['PolicyVersion']['Document']
+                    if isinstance(doc, str):
+                        doc = json.loads(doc)
+
+                    for stmt in doc.get('Statement', []):
+                        if stmt.get('Effect') != 'Allow':
+                            continue
+                        actions = stmt.get('Action', [])
+                        if not isinstance(actions, list):
+                            actions = [actions]
+                        actions = {a.lower() for a in actions}
+                        if actions & dangerous_actions:  # intersección
+                            findings.append({
+                                "resource": policy['PolicyName'],
+                                "arn": policy['Arn'],
+                                "issue": "Permite deshabilitar o modificar CloudTrail"
+                            })
+                except ClientError:
+                    continue
+    except Exception as e:
+        print(f"[!] Error escaneando permisos de CloudTrail: {e}")
+    return findings

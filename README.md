@@ -1,38 +1,68 @@
-# ScanFlaws — AWS IAM Security Scanner
+# 🛡️ ScanFlaws — Escáner de Seguridad para AWS IAM
 
-Herramienta educativa en Python para auditar configuraciones inseguras en AWS IAM, inspirada en [flaws.cloud](https://flaws.cloud).
+**ScanFlaws** es una herramienta educativa en Python diseñada para identificar configuraciones inseguras en **AWS IAM (Identity and Access Management)**.  
+Está inspirada en el famoso reto [flaws.cloud](https://flaws.cloud) y busca ayudarte a detectar malas prácticas antes de que un atacante las explote.
 
-> ⚠️ **Uso ético**: Solo para auditorías en cuentas propias o con autorización explícita.
+> ⚠️ **Importante**: Esta herramienta es **solo para uso ético**.  
+> Úsala únicamente en cuentas AWS que te pertenezcan o en las que tengas **permiso explícito por escrito**.
 
 ---
 
-## 🔍 ¿Qué detecta?
+## 🔍 ¿Qué hace ScanFlaws?
 
-✅ **Usuarios sin MFA** (autenticación multifactor)  
-✅ **Access keys antiguas (>90 días)** o inactivas  
-✅ **Políticas con privilegios excesivos** (`Resource: "*"` + acciones sensibles)  
-✅ **Posibilidad de escalada de privilegios** (ej: `iam:PutUserPolicy`)  
-✅ **Roles asumibles desde Internet** (`Principal: "*"` o cuentas externas)  
-✅ **Hallazgos de IAM Access Analyzer** (si está habilitado)  
-✅ **Usuarios inactivos (>90 días)**  
-✅ **Permisos `iam:PassRole` sin restricciones**  
-✅ **Permisos `sts:AssumeRole` sin restricciones**  
-✅ **Políticas en línea (inline policies)** en usuarios o roles  
-✅ **Permisos que permiten deshabilitar CloudTrail**
+ScanFlaws analiza tu entorno AWS y reporta riesgos críticos en la configuración de IAM, como:
+
+### 👤 Gestión de identidades
+- Usuarios sin **MFA (autenticación multifactor)**
+- Usuarios **inactivos más de 90 días**
+- **Access keys antiguas** (>90 días) o nunca usadas
+
+### 🔐 Políticas y permisos
+- Políticas con `Resource: "*"` (permisos demasiado amplios)
+- Asignación directa de políticas administrativas (`AdministratorAccess`)
+- Permisos peligrosos:
+  - `iam:PassRole` sin restricciones
+  - `sts:AssumeRole` sobre cualquier rol
+  - Acciones que permiten **deshabilitar CloudTrail** (borrar rastros)
+- Uso de **políticas en línea** (en lugar de políticas gestionadas)
+
+### 🌐 Acceso externo y movimiento lateral
+- Roles cuya **trust policy permite ser asumidos desde cuentas externas** o desde Internet (`Principal: "*"` o `arn:aws:iam::[otra-cuenta]`)
+- Hallazgos activos de **IAM Access Analyzer** (si está habilitado en tu cuenta)
 
 ---
 
 ## 📦 Requisitos
 
-- Python 3.8+  
-- Credenciales AWS configuradas (`aws configure`)  
-- Permisos de lectura en IAM y Access Analyzer (opcional)
+Antes de usar ScanFlaws, asegúrate de tener:
 
----
+| Requisito | Detalle |
+|---------|--------|
+| **Python** | Versión 3.8 o superior |
+| **Credenciales AWS** | Configuradas mediante `aws configure` o variables de entorno (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) |
+| **Permisos mínimos en AWS** | El usuario o rol que ejecuta ScanFlaws debe tener permisos de **lectura en IAM** y (opcionalmente) en **Access Analyzer**. |
 
-## 🚀 Cómo usarlo
-
-1. Clona el repositorio:
-   ```bash
-   git clone https://github.com/DarkHama11/ScanFlaws.git
-   cd ScanFlaws
+### ✅ Permisos recomendados (policy mínima)
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:Get*",
+        "iam:List*",
+        "iam:GenerateCredentialReport",
+        "access-analyzer:ListAnalyzers",
+        "access-analyzer:ListFindings",
+        "ec2:DescribeRegions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "sts:GetCallerIdentity",
+      "Resource": "*"
+    }
+  ]
+}

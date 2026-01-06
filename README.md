@@ -71,10 +71,9 @@ Instalación y uso:
 [+] Escaneando IAM Access Analyzer en 17 regiones...
 
 🛡️  Hallazgos en IAM:
-+----------------------------------+------------------+------------------------------------------------------+
-| Check                            | Entidad          | Detalle                                              |
-+----------------------------------+------------------+------------------------------------------------------+
-| Usuarios sin MFA                 | haljr11          | MFA no habilitado                                    |
+| Check | Entidad | Detalle |
+|-------|---------|---------|
+| Usuarios sin MFA | haljr11 | MFA no habilitado |
 |---------------------------------------------------------------------------------------------| 
 
 ### ✅ Permisos recomendados (policy mínima)

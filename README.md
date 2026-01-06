@@ -42,6 +42,31 @@ Antes de usar ScanFlaws, asegúrate de tener:
 | **Credenciales AWS** | Configuradas mediante `aws configure` o variables de entorno (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) |
 | **Permisos mínimos en AWS** | El usuario o rol que ejecuta ScanFlaws debe tener permisos de **lectura en IAM** y (opcionalmente) en **Access Analyzer**. |
 
+
+
+---
+
+### ✅ ¿Qué mejora esta versión?
+
+- **Bloque inicial en tabla**: el usuario entiende **al instante** qué hace, qué necesita y cómo instalarlo.
+- **Secciones claras**: “Requisitos” y “Cómo instalar y usar” están bien separadas y con títulos explícitos.
+- **Mantiene todo el contenido técnico** que ya tenías, pero mejor organizado.
+
+---
+
+Instalación y uso:
+
+1) Clonar el repositorio
+   git clone https://github.com/DarkHama11/ScanFlaws.git
+2) Entrar a la carpeta correcta
+   cd ScanFlaws\ScanFlaws
+3) Instalar dependencias
+   pip install boto3 tabulate
+4) Configurar credenciales AWS (solo la primera vez)
+   aws configure
+5) Ejecutar el escáner
+   python main.py 
+
 ### ✅ Permisos recomendados (policy mínima)
 ```json
 {

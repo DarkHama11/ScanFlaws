@@ -1,0 +1,7 @@
+check,entity,issue,severity,timestamp,analyzer,finding_id,principal,region
+Usuarios sin MFA,haljr11,MFA no habilitado,HIGH,2026-02-21T02:06:33.617416,,,,
+Access Analyzer,arn:aws:s3:::test-hama-ccp,Recurso compartido externamente (AWS::S3::Bucket),HIGH,2026-02-21T02:06:50.685766,DefaultAnalyzer,cad0d640-5edc-43e0-adf4-7b86f62aeb92,*,us-east-1
+Access Analyzer deshabilitado,us-east-2,No hay analizadores activos en esta región,MEDIUM,2026-02-21T02:07:06.294946,,,,us-east-2
+Access Analyzer deshabilitado,us-west-1,No hay analizadores activos en esta región,MEDIUM,2026-02-21T02:07:07.436704,,,,us-west-1
+Access Analyzer deshabilitado,us-west-2,No hay analizadores activos en esta región,MEDIUM,2026-02-21T02:07:08.607843,,,,us-west-2
+Access Analyzer deshabilitado,eu-west-1,No hay analizadores activos en esta región,MEDIUM,2026-02-21T02:07:09.671801,,,,eu-west-1

@@ -1,0 +1,52 @@
+[
+  {
+    "check": "Usuarios sin MFA",
+    "entity": "haljr11",
+    "issue": "MFA no habilitado",
+    "severity": "HIGH",
+    "timestamp": "2026-02-21T02:03:09.928933"
+  },
+  {
+    "check": "Access Analyzer",
+    "entity": "arn:aws:s3:::test-hama-ccp",
+    "issue": "Recurso compartido externamente (AWS::S3::Bucket)",
+    "severity": "HIGH",
+    "timestamp": "2026-02-21T02:03:28.367013",
+    "region": "us-east-1",
+    "analyzer": "DefaultAnalyzer",
+    "principal": "*",
+    "finding_id": "cad0d640-5edc-43e0-adf4-7b86f62aeb92"
+  },
+  {
+    "check": "Access Analyzer deshabilitado",
+    "entity": "us-east-2",
+    "issue": "No hay analizadores activos en esta región",
+    "severity": "MEDIUM",
+    "timestamp": "2026-02-21T02:03:45.275306",
+    "region": "us-east-2"
+  },
+  {
+    "check": "Access Analyzer deshabilitado",
+    "entity": "us-west-1",
+    "issue": "No hay analizadores activos en esta región",
+    "severity": "MEDIUM",
+    "timestamp": "2026-02-21T02:03:46.315335",
+    "region": "us-west-1"
+  },
+  {
+    "check": "Access Analyzer deshabilitado",
+    "entity": "us-west-2",
+    "issue": "No hay analizadores activos en esta región",
+    "severity": "MEDIUM",
+    "timestamp": "2026-02-21T02:03:47.418350",
+    "region": "us-west-2"
+  },
+  {
+    "check": "Access Analyzer deshabilitado",
+    "entity": "eu-west-1",
+    "issue": "No hay analizadores activos en esta región",
+    "severity": "MEDIUM",
+    "timestamp": "2026-02-21T02:03:48.492199",
+    "region": "eu-west-1"
+  }
+]

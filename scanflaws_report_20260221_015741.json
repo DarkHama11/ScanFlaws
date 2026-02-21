@@ -1,0 +1,9 @@
+[
+  {
+    "check": "Usuarios sin MFA",
+    "entity": "haljr11",
+    "issue": "MFA no habilitado",
+    "severity": "HIGH",
+    "timestamp": "2026-02-21T01:56:45.706745"
+  }
+]

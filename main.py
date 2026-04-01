@@ -1,6 +1,6 @@
 """
 ScanFlaws - AWS Security Audit Tool
-Orquestador principal
+Orquestador principal - v3.0
 """
 import sys
 import os
@@ -42,6 +42,14 @@ from phases.phase2_storage.s3_auditor import check_all_s3
 from phases.phase2_storage.ebs_auditor import check_all_ebs
 
 # ============================================
+# IMPORTS - FASE 3: COMPUTE SECURITY
+# ============================================
+
+from phases.phase3_compute.ec2_auditor import check_all_ec2
+from phases.phase3_compute.lambda_auditor import check_all_lambda
+from phases.phase3_compute.ecr_auditor import check_all_ecr
+
+# ============================================
 # CORE
 # ============================================
 
@@ -49,7 +57,7 @@ from core.reporter import print_table, export_to_json, export_to_csv
 
 
 # ============================================
-# FUNCIONES PRINCIPALES
+# FUNCIONES - FASE 1: IDENTITY
 # ============================================
 
 def run_phase1_identity():
@@ -113,6 +121,10 @@ def run_phase1_identity():
     return all_findings
 
 
+# ============================================
+# FUNCIONES - FASE 2: STORAGE
+# ============================================
+
 def run_phase2_storage():
     """
     Ejecuta todos los checks de la Fase 2: Storage Security (S3/EBS).
@@ -145,19 +157,67 @@ def run_phase2_storage():
     return all_findings
 
 
+# ============================================
+# FUNCIONES - FASE 3: COMPUTE
+# ============================================
+
+def run_phase3_compute():
+    """
+    Ejecuta todos los checks de la Fase 3: Compute Security (EC2/Lambda/ECR).
+
+    Returns:
+        list: Lista de hallazgos de Fase 3
+    """
+    all_findings = []
+
+    print("\n" + "=" * 60)
+    print("🖥️  FASE 3: Compute Security (EC2/Lambda/ECR)")
+    print("=" * 60 + "\n")
+
+    # --- EC2 Checks ---
+    try:
+        print("📋 Ejecutando checks de EC2...\n")
+        findings = check_all_ec2()
+        all_findings.extend(findings)
+    except Exception as e:
+        print(f"[!] Error en EC2 Auditor: {e}")
+
+    # --- Lambda Checks ---
+    try:
+        print("\n📋 Ejecutando checks de Lambda...\n")
+        findings = check_all_lambda()
+        all_findings.extend(findings)
+    except Exception as e:
+        print(f"[!] Error en Lambda Auditor: {e}")
+
+    # --- ECR Checks ---
+    try:
+        print("\n📋 Ejecutando checks de ECR...\n")
+        findings = check_all_ecr()
+        all_findings.extend(findings)
+    except Exception as e:
+        print(f"[!] Error en ECR Auditor: {e}")
+
+    return all_findings
+
+
+# ============================================
+# ORQUESTADOR PRINCIPAL
+# ============================================
+
 def run_all_phases(phases_to_run=None):
     """
     Ejecuta los checks de las fases seleccionadas.
 
     Args:
         phases_to_run: Lista de fases a ejecutar (default: todas)
-                       Opciones: ['phase1'], ['phase2'], ['phase1', 'phase2']
+                       Opciones: ['phase1'], ['phase2'], ['phase3'], o combinación
 
     Returns:
         list: Lista combinada de todos los hallazgos
     """
     if phases_to_run is None:
-        phases_to_run = ['phase1', 'phase2']
+        phases_to_run = ['phase1', 'phase2', 'phase3']
 
     all_findings = []
 
@@ -169,13 +229,21 @@ def run_all_phases(phases_to_run=None):
         findings = run_phase2_storage()
         all_findings.extend(findings)
 
+    if 'phase3' in phases_to_run:
+        findings = run_phase3_compute()
+        all_findings.extend(findings)
+
     return all_findings
 
+
+# ============================================
+# FUNCIÓN PRINCIPAL
+# ============================================
 
 def main():
     """Función principal de ScanFlaws"""
     print("\n" + "=" * 60)
-    print("🚀 ScanFlaws - AWS Security Audit Tool")
+    print("🚀 ScanFlaws - AWS Security Audit Tool v3.0")
     print("=" * 60)
     print("\n📌 Ejecutando todas las fases disponibles...\n")
 
@@ -203,7 +271,10 @@ def main():
         # Agrupar por categoría
         s3_findings = [f for f in findings if f.get('storage_type') == 'S3']
         ebs_findings = [f for f in findings if f.get('storage_type') == 'EBS']
-        iam_findings = [f for f in findings if not f.get('storage_type')]
+        ec2_findings = [f for f in findings if f.get('compute_type') == 'EC2']
+        lambda_findings = [f for f in findings if f.get('compute_type') == 'Lambda']
+        ecr_findings = [f for f in findings if f.get('compute_type') == 'ECR']
+        iam_findings = [f for f in findings if not f.get('storage_type') and not f.get('compute_type')]
 
         print("📈 Hallazgos por categoría:")
         if iam_findings:
@@ -212,6 +283,12 @@ def main():
             print(f"  🗄️  Storage (S3): {len(s3_findings)} hallazgos")
         if ebs_findings:
             print(f"  💾 Storage (EBS): {len(ebs_findings)} hallazgos")
+        if ec2_findings:
+            print(f"  🖥️  Compute (EC2): {len(ec2_findings)} hallazgos")
+        if lambda_findings:
+            print(f"  ⚡ Compute (Lambda): {len(lambda_findings)} hallazgos")
+        if ecr_findings:
+            print(f"  🐳 Compute (ECR): {len(ecr_findings)} hallazgos")
         print()
 
         # Tabla completa de hallazgos

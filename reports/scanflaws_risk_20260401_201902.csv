@@ -1,0 +1,11 @@
+check,entity,issue,severity,timestamp,cidr,compute_type,extra_data,port,region
+Usuarios sin MFA,haljr11,MFA no habilitado,HIGH,2026-04-01T20:17:19.275236,,,,,
+Access Key antigua,haljr11,Access Key con 99 días (>90),MEDIUM,2026-04-01T20:17:21.046114,,,"{'key_id': '[REDACTED]', 'age_days': 99}",,
+Access Key antigua,haljr11,Access Key con 92 días (>90),MEDIUM,2026-04-01T20:17:21.046114,,,"{'key_id': '[REDACTED]', 'age_days': 92}",,
+Access Analyzer deshabilitado,us-east-2,No hay analizadores activos en esta región,MEDIUM,2026-04-01T20:18:08.397697,,,,,us-east-2
+Access Analyzer deshabilitado,us-west-1,No hay analizadores activos en esta región,MEDIUM,2026-04-01T20:18:09.645420,,,,,us-west-1
+Access Analyzer deshabilitado,us-west-2,No hay analizadores activos en esta región,MEDIUM,2026-04-01T20:18:10.742914,,,,,us-west-2
+Access Analyzer deshabilitado,eu-west-1,No hay analizadores activos en esta región,MEDIUM,2026-04-01T20:18:12.628160,,,,,eu-west-1
+SG Puerto sensible abierto,launch-wizard-1 (sg-03a2989d564da96ef),Puerto 22 (SSH) abierto a 0.0.0.0/0,CRITICAL,2026-04-01T20:18:47.870849,0.0.0.0/0,EC2,,22,us-east-1
+SG Puerto sensible abierto,launch-wizard-3 (sg-08964d829d74b18f6),Puerto 22 (SSH) abierto a 0.0.0.0/0,CRITICAL,2026-04-01T20:18:47.870849,0.0.0.0/0,EC2,,22,us-east-1
+SG Puerto sensible abierto,launch-wizard-2 (sg-066a34ceaaad3b6b3),Puerto 22 (SSH) abierto a 0.0.0.0/0,CRITICAL,2026-04-01T20:18:47.871890,0.0.0.0/0,EC2,,22,us-east-1

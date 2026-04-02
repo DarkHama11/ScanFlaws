@@ -1,0 +1,108 @@
+{
+  "findings": [
+    {
+      "check": "Usuarios sin MFA",
+      "entity": "haljr11",
+      "issue": "MFA no habilitado",
+      "severity": "HIGH",
+      "timestamp": "2026-04-01T19:15:02.281221"
+    },
+    {
+      "check": "Access Key antigua",
+      "entity": "haljr11",
+      "issue": "Access Key con 99 días (>90)",
+      "severity": "MEDIUM",
+      "timestamp": "2026-04-01T19:15:03.455513",
+      "extra_data": {
+        "key_id": "[REDACTED]",
+        "age_days": 99
+      }
+    },
+    {
+      "check": "Access Key antigua",
+      "entity": "haljr11",
+      "issue": "Access Key con 92 días (>90)",
+      "severity": "MEDIUM",
+      "timestamp": "2026-04-01T19:15:03.455513",
+      "extra_data": {
+        "key_id": "[REDACTED]",
+        "age_days": 92
+      }
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "us-east-2",
+      "issue": "No hay analizadores activos en esta región",
+      "severity": "MEDIUM",
+      "timestamp": "2026-04-01T19:15:55.071256",
+      "region": "us-east-2"
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "us-west-1",
+      "issue": "No hay analizadores activos en esta región",
+      "severity": "MEDIUM",
+      "timestamp": "2026-04-01T19:15:56.798911",
+      "region": "us-west-1"
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "us-west-2",
+      "issue": "No hay analizadores activos en esta región",
+      "severity": "MEDIUM",
+      "timestamp": "2026-04-01T19:15:58.433595",
+      "region": "us-west-2"
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "eu-west-1",
+      "issue": "No hay analizadores activos en esta región",
+      "severity": "MEDIUM",
+      "timestamp": "2026-04-01T19:16:00.160750",
+      "region": "eu-west-1"
+    },
+    {
+      "check": "SG Puerto sensible abierto",
+      "entity": "launch-wizard-1 (sg-03a2989d564da96ef)",
+      "issue": "Puerto 22 (SSH) abierto a 0.0.0.0/0",
+      "severity": "CRITICAL",
+      "timestamp": "2026-04-01T19:16:36.475583",
+      "compute_type": "EC2",
+      "region": "us-east-1",
+      "port": 22,
+      "cidr": "0.0.0.0/0"
+    },
+    {
+      "check": "SG Puerto sensible abierto",
+      "entity": "launch-wizard-3 (sg-08964d829d74b18f6)",
+      "issue": "Puerto 22 (SSH) abierto a 0.0.0.0/0",
+      "severity": "CRITICAL",
+      "timestamp": "2026-04-01T19:16:36.475583",
+      "compute_type": "EC2",
+      "region": "us-east-1",
+      "port": 22,
+      "cidr": "0.0.0.0/0"
+    },
+    {
+      "check": "SG Puerto sensible abierto",
+      "entity": "launch-wizard-2 (sg-066a34ceaaad3b6b3)",
+      "issue": "Puerto 22 (SSH) abierto a 0.0.0.0/0",
+      "severity": "CRITICAL",
+      "timestamp": "2026-04-01T19:16:36.475583",
+      "compute_type": "EC2",
+      "region": "us-east-1",
+      "port": 22,
+      "cidr": "0.0.0.0/0"
+    }
+  ],
+  "exported_at": "2026-04-01T19:16:52.036447",
+  "total_findings": 10,
+  "severity_summary": {
+    "CRITICAL": 3,
+    "HIGH": 1,
+    "MEDIUM": 6,
+    "LOW": 0,
+    "INFO": 0
+  },
+  "scanflaws_version": "3.0-hardened"
+}

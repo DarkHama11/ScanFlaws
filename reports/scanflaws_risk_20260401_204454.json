@@ -1,0 +1,240 @@
+{
+  "findings": [
+    {
+      "check": "SG Puerto sensible abierto",
+      "entity": "launch-wizard-1 (sg-03a2989d564da96ef)",
+      "severity": "CRITICAL",
+      "issue": "Puerto 22 (SSH) abierto a 0.0.0.0/0",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 100,
+      "context": {
+        "is_public": true,
+        "has_internet_exposure": true,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "EC2"
+      },
+      "risk_level": "CRITICAL",
+      "source": "scan",
+      "correlated_count": 0
+    },
+    {
+      "check": "SG Puerto sensible abierto",
+      "entity": "launch-wizard-3 (sg-08964d829d74b18f6)",
+      "severity": "CRITICAL",
+      "issue": "Puerto 22 (SSH) abierto a 0.0.0.0/0",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 100,
+      "context": {
+        "is_public": true,
+        "has_internet_exposure": true,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "EC2"
+      },
+      "risk_level": "CRITICAL",
+      "source": "scan",
+      "correlated_count": 0
+    },
+    {
+      "check": "SG Puerto sensible abierto",
+      "entity": "launch-wizard-2 (sg-066a34ceaaad3b6b3)",
+      "severity": "CRITICAL",
+      "issue": "Puerto 22 (SSH) abierto a 0.0.0.0/0",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 100,
+      "context": {
+        "is_public": true,
+        "has_internet_exposure": true,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "EC2"
+      },
+      "risk_level": "CRITICAL",
+      "source": "scan",
+      "correlated_count": 0
+    },
+    {
+      "check": "Usuarios sin MFA",
+      "entity": "haljr11",
+      "severity": "HIGH",
+      "issue": "MFA no habilitado",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 70,
+      "context": {
+        "is_public": false,
+        "has_internet_exposure": false,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "Unknown"
+      },
+      "risk_level": "HIGH",
+      "source": "scan",
+      "correlated_count": 2
+    },
+    {
+      "check": "Access Key antigua",
+      "entity": "haljr11",
+      "severity": "MEDIUM",
+      "issue": "Access Key con 99 días (>90)",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": {
+        "key_id": "[REDACTED]",
+        "age_days": 99
+      },
+      "score": 55,
+      "context": {
+        "is_public": false,
+        "has_internet_exposure": false,
+        "is_production": false,
+        "has_sensitive_data": true,
+        "resource_type": "Credential"
+      },
+      "risk_level": "MEDIUM",
+      "source": "scan",
+      "correlated_count": 2
+    },
+    {
+      "check": "Access Key antigua",
+      "entity": "haljr11",
+      "severity": "MEDIUM",
+      "issue": "Access Key con 92 días (>90)",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": {
+        "key_id": "[REDACTED]",
+        "age_days": 92
+      },
+      "score": 55,
+      "context": {
+        "is_public": false,
+        "has_internet_exposure": false,
+        "is_production": false,
+        "has_sensitive_data": true,
+        "resource_type": "Credential"
+      },
+      "risk_level": "MEDIUM",
+      "source": "scan",
+      "correlated_count": 2
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "us-east-2",
+      "severity": "MEDIUM",
+      "issue": "No hay analizadores activos en esta región",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 30,
+      "context": {
+        "is_public": false,
+        "has_internet_exposure": false,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "Credential"
+      },
+      "risk_level": "LOW",
+      "source": "scan",
+      "correlated_count": 0
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "us-west-1",
+      "severity": "MEDIUM",
+      "issue": "No hay analizadores activos en esta región",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 30,
+      "context": {
+        "is_public": false,
+        "has_internet_exposure": false,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "Credential"
+      },
+      "risk_level": "LOW",
+      "source": "scan",
+      "correlated_count": 0
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "us-west-2",
+      "severity": "MEDIUM",
+      "issue": "No hay analizadores activos en esta región",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 30,
+      "context": {
+        "is_public": false,
+        "has_internet_exposure": false,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "Credential"
+      },
+      "risk_level": "LOW",
+      "source": "scan",
+      "correlated_count": 0
+    },
+    {
+      "check": "Access Analyzer deshabilitado",
+      "entity": "eu-west-1",
+      "severity": "MEDIUM",
+      "issue": "No hay analizadores activos en esta región",
+      "details": "",
+      "timestamp": "2026-04-01T20:44:54.814658",
+      "recommendation": null,
+      "cve_id": null,
+      "extra_data": null,
+      "score": 30,
+      "context": {
+        "is_public": false,
+        "has_internet_exposure": false,
+        "is_production": false,
+        "has_sensitive_data": false,
+        "resource_type": "Credential"
+      },
+      "risk_level": "LOW",
+      "source": "scan",
+      "correlated_count": 0
+    }
+  ],
+  "exported_at": "2026-04-01T20:44:54.853902",
+  "total_findings": 10,
+  "severity_summary": {
+    "CRITICAL": 3,
+    "HIGH": 1,
+    "MEDIUM": 6,
+    "LOW": 0,
+    "INFO": 0
+  },
+  "scanflaws_version": "3.0-hardened"
+}

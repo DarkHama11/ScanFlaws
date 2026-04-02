@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Reports (NO incluir en imagen)
+reports/
+scanflaws_report_*.json
+scanflaws_report_*.csv
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AWS credentials (NUNCA incluir)
+.aws/
+*.pem
+*.key
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -7,6 +7,31 @@ Está inspirada en el famoso reto [flaws.cloud](https://flaws.cloud) y busca ayu
 > Úsala únicamente en cuentas AWS que te pertenezcan o en las que tengas **permiso explícito por escrito**.
 
 ---
+## 🔐 Security Hardening
+
+ScanFlaws implementa múltiples capas de protección de seguridad:
+
+### ✅ Protecciones Implementadas
+
+| Vulnerabilidad | Protección | Estado |
+|---------------|------------|--------|
+| Command Injection | `subprocess.run(..., shell=False)` + whitelist | ✅ |
+| Path Traversal | `sanitize_path()` + UUID filenames | ✅ |
+| Input Validation | Regex + character blocking | ✅ |
+| Sensitive Data Leak | Auto-redaction in logs | ✅ |
+| Resource Exhaustion | Rate limiting + timeouts | ✅ |
+| Privilege Escalation | Non-root Docker user | ✅ |
+
+### 🛡️ Ejecución Segura
+
+```bash
+# Ejecutar en Docker (recomendado para aislamiento)
+docker build -t scanflaws .
+docker run --rm -v ~/.aws:/home/scanflaws/.aws:ro scanflaws
+
+# Ejecutar localmente con validaciones
+python main.py --target 192.168.1.0/24  # Target validado automáticamente
+
 
 ## 🔍 ¿Qué hace ScanFlaws?
 
